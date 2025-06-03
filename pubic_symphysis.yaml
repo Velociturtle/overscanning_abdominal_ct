@@ -1,0 +1,7 @@
+# YOLO dataset configuration for Pubic Symphysis detection
+path: pubic_symphysis_yolo_dataset  # root dir for dataset
+train: images/train  # train images (relative to 'path')
+val: images/val      # val images (relative to 'path')
+# (we could also explicitly list test: if we had a test set)
+names:
+  0: pubic_symphysis
