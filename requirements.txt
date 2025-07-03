@@ -2,8 +2,8 @@ numpy
 pandas
 nibabel
 opencv-python
-matplotlib
 torch
 ultralytics
 totalsegmentator
 dicom2nifti
+tqdm
