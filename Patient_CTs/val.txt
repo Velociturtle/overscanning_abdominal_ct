@@ -1,4 +1,0 @@
-Patient002
-Patient001
-Patient015
-Patient003
