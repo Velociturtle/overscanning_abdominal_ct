@@ -1,21 +1,17 @@
 # Overscanning Abdominal CT
 
-This repository contains notebooks and sample data for calculating cranial and caudal overscanning on abdominal CT volumes. Overscanning is measured relative to the pubic symphysis (caudal) and to liver/spleen segmentation (cranial). Detection uses YOLOv11 and segmentation uses TotalSegmentator.
+This repository provides a single Jupyter notebook for calculating cranial and caudal overscanning on abdominal CT volumes. Overscanning is measured relative to the pubic symphysis (caudal) and to liver/spleen segmentation (cranial). Detection uses YOLOv11 and segmentation uses TotalSegmentator.
 
-The project is organized around a main notebook, **`overscanning_calculator.ipynb`**, which processes a folder of NIfTI volumes and incrementally updates `overscanning_results.csv` with overscanning metrics. Additional notebooks demonstrate data preparation, model training and result validation.
+The main workflow lives in **`overscanning_calculator.ipynb`** which processes a folder of NIfTI volumes and incrementally updates `overscanning_results.csv`. Later sections of the notebook can optionally render MP4 previews of each scan and produce summary statistics.
 
 ## Contents
 
-- `Patient_CTs/` – Example NIfTI volumes with ground‑truth pubic symphysis masks.
-- `overscanning_calculator.ipynb` – Computes overscanning metrics for all scans in a folder.
-- `final_infer_pubic_symphysis.ipynb` – Single‑scan inference demo using YOLO.
-- `yolo.ipynb` – Generates a YOLO training dataset and shows training/validation routines.
-- `finder.ipynb`, `reorient_niftis.ipynb` – Utilities for converting DICOM to NIfTI.
-- `mp4_validator.ipynb` – Renders scrolling MP4s to visually validate CSV results.
+- `overscanning_calculator.ipynb` – full pipeline for overscanning metrics, MP4 previews and CSV summaries.
+- `YOLO/` – example training outputs and model weights for the pubic symphysis detector.
 
 ## Installation
 
-Create a Python environment (3.9+ recommended) and install the dependencies listed in `requirements.txt`:
+Create a Python environment (Python 3.9+ recommended) and install the dependencies:
 
 ```bash
 python -m venv venv
@@ -27,31 +23,21 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. **Prepare your data**
-   - Organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
-   - For YOLO training you will also need `pubic_mask.nii.gz` masks in each folder (see `yolo.ipynb`).
-
+1. **Prepare your data** – organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
 2. **Edit the paths in `overscanning_calculator.ipynb`**
    - `MODEL_PATH` – path to your trained YOLO model weights (`.pt`).
-   - `NIFTI_DIR` – root directory containing patient subfolders with NIfTI volumes.
+   - `NIFTI_DIR` – directory containing patient subfolders with NIfTI volumes.
    - `CSV_PATH` – output CSV path (defaults to `NIFTI_DIR/overscanning_results.csv`).
-
-   Flags controlling behaviour:
-   - `DISPLAY_DETECTION` – show the best pubic‑symphysis detection slice.
-   - `FAST_MODEL` – pass `--fast` to TotalSegmentator for quicker but less accurate masks.
-   - `MULTI_LABEL_MASK` – store liver and spleen in a combined mask as labels `1` and `2`.
-
-3. **Run the notebook**
-   Execute all cells in `overscanning_calculator.ipynb`. Processing is incremental; existing rows in the CSV will be updated or appended. Femur, liver and spleen masks are generated on the fly using TotalSegmentator (GPU is tried first with CPU fallback).
-
-4. **Validate results** (optional)
-   - `mp4_validator.ipynb` builds scrolling MP4s showing the detected landmarks and segmentations for manual review.
-   - `final_infer_pubic_symphysis.ipynb` demonstrates running YOLO on a single volume and visualising the highest‑confidence detection.
+   - Flags controlling behaviour:
+     - `DISPLAY_DETECTION` – show the best pubic-symphysis detection slice.
+     - `FAST_MODEL` – pass `--fast` to TotalSegmentator for quicker but less accurate masks.
+     - `MULTI_LABEL_MASK` – store liver and spleen in a combined mask as labels `1` and `2`.
+3. **Run the notebook** – execute the cells. Processing is incremental; existing rows in the CSV are updated or appended. Femur, liver and spleen masks are generated on the fly (GPU is tried first with CPU fallback). Optional cells near the end can generate MP4 preview videos and write a summary statistics CSV.
 
 ## File Requirements
 
-- Input CTs must be NIfTI files (`.nii` or `.nii.gz`). Ensure volumes are correctly oriented head‑to‑feet. Utilities for DICOM conversion are provided in `finder.ipynb` and `reorient_niftis.ipynb` (requires `dcm2niix`).
-- YOLO expects images in BGR format; the notebooks handle normalisation automatically.
+- Input CTs must be NIfTI files (`.nii` or `.nii.gz`) oriented head-to-feet.
+- YOLO expects images in BGR format; the notebook handles normalisation automatically.
 
 ## Methodology Notes
 
@@ -60,10 +46,10 @@ Cranial overscanning is computed using the highest axial slice containing liver 
 The CSV columns are:
 
 - `file_name` – scan filename
-- `pubic_z_mm` – world z‑coordinate of detected pubic symphysis
+- `pubic_z_mm` – world z-coordinate of detected pubic symphysis
 - `scan_end_z_mm` – caudal edge of scan
 - `caudal_overscan_mm` – distance from pubic symphysis to scan end
-- `femur_top_z_mm` – cranial‑most femur coordinate
+- `femur_top_z_mm` – cranial-most femur coordinate
 - `pubic_source` – `YOLO`, `YOLO_NoFemur`, or `FemurFallback`
 - `liver_spleen_z_mm` – highest liver/spleen voxel
 - `scan_start_z_mm` – cranial edge of scan
@@ -73,4 +59,3 @@ The CSV columns are:
 ## License
 
 This project is released under the MIT License – see `LICENSE` for details.
-
