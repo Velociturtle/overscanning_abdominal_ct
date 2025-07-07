@@ -7,3 +7,4 @@ ultralytics
 totalsegmentator
 dicom2nifti
 tqdm
+matplotlib
