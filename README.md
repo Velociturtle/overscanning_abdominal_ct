@@ -9,16 +9,16 @@ Two workflows are available:
 
 ## Contents
 
-- `overscanning_calculator.ipynb` – reference notebook with the full workflow
-- `abdomen_overscanning_helper.ipynb` – example notebook calling the modules
-- `abdominal_overscan/config.py` – edit paths and flags here before running
-- `abdominal_overscan/caudal.py` – caudal overscan detection and CSV update
-- `abdominal_overscan/cranial.py` – cranial overscan detection and CSV update
-- `abdominal_overscan/mp4_preview.py` – optional video generation
-- `abdominal_overscan/metrics.py` – optional summary statistics table
-- `abdominal_overscan/figures.py` – optional figure generation
-- `tests/` – pytest suite covering the modules
-- `YOLO/` – example training outputs and model weights for the pubic symphysis detector
+- `overscanning_calculator.ipynb` — reference notebook (full workflow)
+- `abdomen_overscanning_helper.ipynb` — helper notebook that runs the modules
+- `abdominal_overscan/config.py` — (optional) edit paths/flags if you’re not using the default `data/` folder
+- `abdominal_overscan/caudal.py` — caudal overscan + CSV update
+- `abdominal_overscan/cranial.py` — cranial overscan + CSV update
+- `abdominal_overscan/mp4_preview.py` — (optional) video generation
+- `abdominal_overscan/metrics.py` — (optional) summary statistics table
+- `abdominal_overscan/figures.py` — (optional) figure generation
+- `tests/` — pytest suite
+- `YOLO/` — example training outputs and pubic symphysis model weights
 
 ## Installation
 
