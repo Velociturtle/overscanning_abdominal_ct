@@ -2,7 +2,7 @@ import sys, pathlib
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 import pytest
 
-cranial = pytest.importorskip('cranial')
+cranial = pytest.importorskip('abdominal_overscan.cranial')
 from pathlib import Path
 
 

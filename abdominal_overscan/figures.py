@@ -1,7 +1,11 @@
 # BLOCK 6 – Figure generation
 
-import numpy as np, pandas as pd, matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from pathlib import Path
+
+from .config import NIFTI_DIR, CSV_PATH
 
 def save_fig(fig, name: str, out_dir: Path = NIFTI_DIR, exts=("png",), dpi=300, close=True):
     out_dir.mkdir(parents=True, exist_ok=True)

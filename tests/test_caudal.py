@@ -2,7 +2,7 @@ import sys, pathlib
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 import pytest
 
-caudal = pytest.importorskip('caudal')
+caudal = pytest.importorskip('abdominal_overscan.caudal')
 
 
 def test_preprocess_slice_import_error(monkeypatch):
