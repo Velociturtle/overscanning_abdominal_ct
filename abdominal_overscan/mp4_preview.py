@@ -1,29 +1,55 @@
-# BLOCK 4 – Generate preview MP4s of mid-coronal slices (ABDOMEN)
+"""Generate preview MP4s of mid-coronal slices (abdomen)."""
+from __future__ import annotations
+
+import traceback
+from pathlib import Path
+
+try:
+    import numpy as np  # type: ignore
+    import pandas as pd  # type: ignore
+    import nibabel as nib  # type: ignore
+    import cv2  # type: ignore
+except Exception:  # pragma: no cover
+    np = None  # type: ignore
+    pd = None  # type: ignore
+    nib = None  # type: ignore
+    cv2 = None  # type: ignore
+
+try:
+    from tqdm import tqdm  # type: ignore
+except Exception:  # pragma: no cover
+    tqdm = None  # type: ignore
+
+from .config import NIFTI_DIR, CSV_PATH
+from .caudal import ensure_femur_mask
+from .cranial import ensure_liver_spleen_mask
 
 OUT_DIR = NIFTI_DIR.parent / "trauma_overscan_videos_test"
-OUT_DIR.mkdir(exist_ok=True)
-
-df = pd.read_csv(CSV_PATH, encoding="utf-8-sig")
-df.columns = df.columns.str.strip().str.replace("\ufeff", "", regex=False)
-
-print(f"{len(df)} CT volumes found")
 
 
-def build_mp4_abdomen(scan_id: str,
-                      pubic_z_mm: float | None,
-                      organ_z_mm: float | None,
-                      organ_label: str | None,
-                      pubic_source: str | None,
-                      fps: int = 48,
-                      slice_span: int = 100):
+def build_mp4_abdomen(
+    scan_id: str,
+    pubic_z_mm: float | None,
+    organ_z_mm: float | None,
+    organ_label: str | None,
+    pubic_source: str | None,
+    fps: int = 48,
+    slice_span: int = 100,
+) -> None:
+    """Create a mid-coronal MP4 preview for ``scan_id``."""
+    if np is None or pd is None or nib is None or cv2 is None:
+        raise ImportError("numpy, pandas, nibabel and cv2 are required")
+
     folder = NIFTI_DIR / scan_id
     if not folder.is_dir():
         raise FileNotFoundError(f"{folder} not found")
 
-    candidates = [f for f in folder.glob("*.nii*")
-                  if f.name.startswith(scan_id)
-                  and "_combined" not in f.name.lower()
-                  and not f.name.startswith("ts_")]
+    candidates = [
+        f for f in folder.glob("*.nii*")
+        if f.name.startswith(scan_id)
+        and "_combined" not in f.name.lower()
+        and not f.name.startswith("ts_")
+    ]
     if not candidates:
         raise FileNotFoundError("CT volume not found")
     if len(candidates) > 1:
@@ -32,20 +58,29 @@ def build_mp4_abdomen(scan_id: str,
     ct_path = candidates[0]
 
     fem_path = None
-    try: fem_path = ensure_femur_mask(ct_path)
-    except Exception: pass
+    try:
+        fem_path = ensure_femur_mask(ct_path)
+    except Exception:
+        pass
     org_path = None
-    try: org_path = ensure_liver_spleen_mask(ct_path)
-    except Exception: pass
+    try:
+        org_path = ensure_liver_spleen_mask(ct_path)
+    except Exception:
+        pass
 
+    OUT_DIR.mkdir(exist_ok=True)
     mp4_path = OUT_DIR / f"{scan_id}.mp4"
     if mp4_path.exists():
         mp4_path.unlink()
 
-    ct_img  = nib.load(str(ct_path))
-    vol     = ct_img.get_fdata()
-    fem_msk = nib.load(str(fem_path)).get_fdata() > 0 if fem_path and fem_path.exists() else None
-    org_msk = nib.load(str(org_path)).get_fdata() > 0 if org_path and org_path.exists() else None
+    ct_img = nib.load(str(ct_path))
+    vol = ct_img.get_fdata()
+    fem_msk = (
+        nib.load(str(fem_path)).get_fdata() > 0 if fem_path and fem_path.exists() else None
+    )
+    org_msk = (
+        nib.load(str(org_path)).get_fdata() > 0 if org_path and org_path.exists() else None
+    )
     vx, _, vz = ct_img.header.get_zooms()[:3]
 
     _, Y, Z = vol.shape
@@ -53,8 +88,12 @@ def build_mp4_abdomen(scan_id: str,
         np.zeros(Z), np.zeros(Z), np.arange(Z), np.ones(Z)
     ]))[2])
 
-    pubic_row = int(np.argmin(np.abs(z_world - pubic_z_mm))) if (pubic_z_mm is not None and np.isfinite(pubic_z_mm)) else None
-    organ_row = int(np.argmin(np.abs(z_world - organ_z_mm))) if (organ_z_mm is not None and np.isfinite(organ_z_mm)) else None
+    pubic_row = int(np.argmin(np.abs(z_world - pubic_z_mm))) if (
+        pubic_z_mm is not None and np.isfinite(pubic_z_mm)
+    ) else None
+    organ_row = int(np.argmin(np.abs(z_world - organ_z_mm))) if (
+        organ_z_mm is not None and np.isfinite(organ_z_mm)
+    ) else None
 
     mid_y, half = Y // 2, slice_span // 2
     start_y, end_y = max(0, mid_y - half), min(Y - 1, mid_y + half)
@@ -67,7 +106,7 @@ def build_mp4_abdomen(scan_id: str,
     ALPHA = 0.35
     landmark_name = "Femur" if (pubic_source == "FemurFallback") else "Pubic Symphysis"
 
-    def render(y_idx: int):
+    def render(y_idx: int) -> any:
         base = np.clip((np.flipud(vol[:, y_idx, :].T) + 200) / 500, 0, 1) * 255
         base = cv2.cvtColor(base.astype(np.uint8), cv2.COLOR_GRAY2BGR)
 
@@ -89,17 +128,32 @@ def build_mp4_abdomen(scan_id: str,
         if pubic_row is not None:
             y_line = int(pubic_row * y_stretch)
             cv2.line(img, (0, y_line), (w - 1, y_line), red, 2)
-            cv2.putText(img, f"{landmark_name} z={pubic_z_mm:.0f} mm",
-                        (10, max(20, y_line - 6)), font, fs, red, th, cv2.LINE_AA)
+            cv2.putText(
+                img,
+                f"{landmark_name} z={pubic_z_mm:.0f} mm",
+                (10, max(20, y_line - 6)),
+                font,
+                fs,
+                red,
+                th,
+                cv2.LINE_AA,
+            )
 
         if organ_row is not None and organ_label:
             y_line = int(organ_row * y_stretch)
             cv2.line(img, (0, y_line), (w - 1, y_line), green, 2)
-            cv2.putText(img, f"{organ_label} z={organ_z_mm:.0f} mm",
-                        (10, min(h - 10, y_line + 20)), font, fs, green, th, cv2.LINE_AA)
+            cv2.putText(
+                img,
+                f"{organ_label} z={organ_z_mm:.0f} mm",
+                (10, min(h - 10, y_line + 20)),
+                font,
+                fs,
+                green,
+                th,
+                cv2.LINE_AA,
+            )
 
-        cv2.putText(img, f"{scan_id} | y={y_idx}",
-                    (10, h - 10), font, fs, (255, 255, 0), th, cv2.LINE_AA)
+        cv2.putText(img, f"{scan_id} | y={y_idx}", (10, h - 10), font, fs, (255, 255, 0), th, cv2.LINE_AA)
         return img
 
     first = render(start_y)
@@ -110,21 +164,36 @@ def build_mp4_abdomen(scan_id: str,
         vw.write(render(y))
     vw.release()
 
-ok = failed = 0
-for _, r in tqdm(df.iterrows(), total=len(df), desc="Processing (abdomen MP4s)", unit="scan"):
-    sid = r["file_name"].split(".nii")[0]
-    try:
-        build_mp4_abdomen(
-            sid,
-            float(r["pubic_z_mm"])        if "pubic_z_mm"        in r and pd.notna(r["pubic_z_mm"])        else None,
-            float(r["liver_spleen_z_mm"]) if "liver_spleen_z_mm" in r and pd.notna(r["liver_spleen_z_mm"]) else None,
-            str(r["top_organ"]).strip()   if "top_organ"         in r and pd.notna(r["top_organ"])         else None,
-            str(r["pubic_source"]).strip()if "pubic_source"      in r and pd.notna(r["pubic_source"])      else None,
-        )
-        ok += 1
-    except Exception as e:
-        failed += 1
-        tqdm.write(f"✗ {sid}: {e}")
-        traceback.print_exc()
 
-print(f"Finished. {ok} MP4s created and saved to {OUT_DIR}")
+def run_all() -> None:
+    """Generate MP4 previews for all scans listed in the results CSV."""
+    if pd is None or tqdm is None:
+        raise ImportError("pandas and tqdm are required")
+
+    df = pd.read_csv(CSV_PATH, encoding="utf-8-sig")
+    df.columns = df.columns.str.strip().str.replace("\ufeff", "", regex=False)
+    print(f"{len(df)} CT volumes found")
+
+    ok = failed = 0
+    iterator = tqdm(df.iterrows(), total=len(df), desc="Processing (abdomen MP4s)", unit="scan")
+    for _, r in iterator:
+        sid = r["file_name"].split(".nii")[0]
+        try:
+            build_mp4_abdomen(
+                sid,
+                float(r["pubic_z_mm"]) if "pubic_z_mm" in r and pd.notna(r["pubic_z_mm"]) else None,
+                float(r["liver_spleen_z_mm"]) if "liver_spleen_z_mm" in r and pd.notna(r["liver_spleen_z_mm"]) else None,
+                str(r["top_organ"]).strip() if "top_organ" in r and pd.notna(r["top_organ"]) else None,
+                str(r["pubic_source"]).strip() if "pubic_source" in r and pd.notna(r["pubic_source"]) else None,
+            )
+            ok += 1
+        except Exception as e:
+            failed += 1
+            tqdm.write(f"✗ {sid}: {e}")
+            traceback.print_exc()
+
+    print(f"Finished. {ok} MP4s created and saved to {OUT_DIR}")
+
+
+if __name__ == "__main__":  # pragma: no cover - manual invocation
+    run_all()
