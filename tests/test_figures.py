@@ -5,7 +5,7 @@ pytest.importorskip('numpy')
 pytest.importorskip('pandas')
 pytest.importorskip('matplotlib')
 
-import plotting
+import abdominal_overscan.figures as plotting
 
 class DummyAx:
     def __init__(self):

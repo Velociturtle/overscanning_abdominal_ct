@@ -1,5 +1,9 @@
 # BLOCK 5 – Overscan metrics & summary stats
 
+import pandas as pd
+
+from .config import CSV_PATH
+
 SUMMARY_CSV_PATH = CSV_PATH.with_name("summary_statistics.csv")
 
 df = pd.read_csv(CSV_PATH, sep=None, engine="python", encoding="utf-8-sig")

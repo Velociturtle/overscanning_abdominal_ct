@@ -1,10 +1,19 @@
 """Configuration and shared constants for the overscanning pipeline."""
 from pathlib import Path
 
-# --- Paths (edit these) ---
-MODEL_PATH = Path("PATH_TO_MODEL_WEIGHTS.pt")
-NIFTI_DIR = Path("PATH_TO_NIFTI_DIRECTORY")
+# --- Paths ---
+# By default the repository expects a ``data`` directory alongside the
+# :mod:`abdominal_overscan` package.  The model weights are assumed to live
+# in the ``YOLO/model_and_training`` subdirectory.  All paths can be
+# overridden at runtime or by editing this file.
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+NIFTI_DIR = BASE_DIR / "data"
 CSV_PATH = NIFTI_DIR / "overscanning_results.csv"
+MODEL_PATH = (
+    BASE_DIR
+    / "YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights/best.pt"
+)
 
 # --- Flags ---
 DISPLAY_DETECTION = True

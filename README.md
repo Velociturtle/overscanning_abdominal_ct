@@ -11,12 +11,12 @@ Two workflows are available:
 
 - `overscanning_calculator.ipynb` – reference notebook with the full workflow
 - `abdomen_overscanning_helper.ipynb` – example notebook calling the modules
-- `config.py` – edit paths and flags here before running
-- `caudal.py` – caudal overscan detection and CSV update
-- `cranial.py` – cranial overscan detection and CSV update
-- `mp4_preview.py` – optional video generation
-- `stats_summary.py` – optional summary statistics table
-- `plotting.py` – optional figure generation
+- `abdominal_overscan/config.py` – edit paths and flags here before running
+- `abdominal_overscan/caudal.py` – caudal overscan detection and CSV update
+- `abdominal_overscan/cranial.py` – cranial overscan detection and CSV update
+- `abdominal_overscan/mp4_preview.py` – optional video generation
+- `abdominal_overscan/metrics.py` – optional summary statistics table
+- `abdominal_overscan/figures.py` – optional figure generation
 - `tests/` – pytest suite covering the modules
 - `YOLO/` – example training outputs and model weights for the pubic symphysis detector
 
@@ -32,19 +32,33 @@ pip install -r requirements.txt
 
 `torch` should be installed with CUDA support if GPU processing is desired for YOLO and TotalSegmentator.
 
+## Default paths
+
+The module `abdominal_overscan.config` defines the locations used by the package:
+
+```python
+BASE_DIR = Path(__file__).resolve().parent.parent
+NIFTI_DIR = BASE_DIR / "data"
+CSV_PATH = NIFTI_DIR / "overscanning_results.csv"
+```
+
+By default NIfTI files are read from the `data/` directory next to the
+repository and results are written there as well.  These paths can be modified
+either by editing `abdominal_overscan/config.py` or at runtime.
+
 ## Usage
 
 1. **Download the model weights** – retrieve `best.pt` from `YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.
 2. **Prepare your data** – organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
-3. **Configure paths** – edit `config.py` to point `MODEL_PATH`, `NIFTI_DIR` and `CSV_PATH` to your locations.  Optional flags controlling detection and segmentation can also be adjusted.
+3. **Configure paths** – edit `abdominal_overscan/config.py` to point `MODEL_PATH`, `NIFTI_DIR` and `CSV_PATH` to your locations.  Optional flags controlling detection and segmentation can also be adjusted.
 4. **Run the pipeline** – either execute the modules directly:
 
 ```bash
-python caudal.py        # caudal overscan
-python cranial.py       # cranial overscan
-python mp4_preview.py   # optional video previews
-python stats_summary.py # optional summary CSV
-python plotting.py      # optional figures
+python -m abdominal_overscan.caudal   # caudal overscan
+python -m abdominal_overscan.cranial  # cranial overscan
+python -m abdominal_overscan.mp4_preview   # optional video previews
+python -m abdominal_overscan.metrics  # optional summary CSV
+python -m abdominal_overscan.figures  # optional figures
 ```
 
    or open `abdomen_overscanning_helper.ipynb` and run the cells.

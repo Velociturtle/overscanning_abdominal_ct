@@ -3,7 +3,7 @@ import importlib
 from pathlib import Path
 import pytest
 
-import config
+import abdominal_overscan.config as config
 
 
 def test_paths_are_path_objects():

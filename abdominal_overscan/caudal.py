@@ -8,7 +8,7 @@ import time
 import traceback
 from pathlib import Path
 
-import config
+from . import config
 
 try:  # optional dependencies
     import numpy as np  # type: ignore
