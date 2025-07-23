@@ -4,6 +4,13 @@ This repository provides a single Jupyter notebook for calculating cranial and c
 
 The main workflow lives in **`overscanning_calculator.ipynb`** which processes a folder of NIfTI volumes and incrementally updates `overscanning_results.csv`. Later sections of the notebook can optionally render MP4 previews, write a summary statistics CSV and save scatter, box and bar plots of overscanning metrics.
 
+Pretrained weights for the pubic-symphysis YOLO model are available under
+`YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.  Download
+`best.pt` from that folder.  A copy of the overscanning calculator notebook can
+be obtained by cloning this repository or downloading the file directly.  When
+running the notebook you will need to point the path variables to your copy of
+the weights and to your NIfTI data directory as described below.
+
 ## Contents
 
 - `overscanning_calculator.ipynb` – full pipeline for overscanning metrics, MP4 previews and CSV summaries.
@@ -23,16 +30,17 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. **Prepare your data** – organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
-2. **Edit the paths in `overscanning_calculator.ipynb`**
-   - `MODEL_PATH` – path to your trained YOLO model weights (`.pt`).
+1. **Download the calculator and model weights** – clone this repository (or download `overscanning_calculator.ipynb` directly) and retrieve `best.pt` from `YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.
+2. **Prepare your data** – organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
+3. **Edit the paths in `overscanning_calculator.ipynb`**
+   - `MODEL_PATH` – path to the downloaded YOLO weights (`best.pt`).
    - `NIFTI_DIR` – directory containing patient subfolders with NIfTI volumes.
    - `CSV_PATH` – output CSV path (defaults to `NIFTI_DIR/overscanning_results.csv`).
    - Flags controlling behaviour:
      - `DISPLAY_DETECTION` – show the best pubic-symphysis detection slice.
      - `FAST_MODEL` – pass `--fast` to TotalSegmentator for quicker but less accurate masks.
      - `MULTI_LABEL_MASK` – store liver and spleen in a combined mask as labels `1` and `2`.
-3. **Run the notebook** – execute the cells. Processing is incremental; existing rows in the CSV are updated or appended. Femur, liver and spleen masks are generated on the fly (GPU is tried first with CPU fallback). Optional cells near the end can generate MP4 preview videos, write a summary statistics CSV and export PNG plots summarising overscanning.
+4. **Run the notebook** – execute the cells. Processing is incremental; existing rows in the CSV are updated or appended. Femur, liver and spleen masks are generated on the fly (GPU is tried first with CPU fallback). Optional cells near the end can generate MP4 preview videos, write a summary statistics CSV and export PNG plots summarising overscanning.
 
 ## File Requirements
 
