@@ -1,20 +1,24 @@
 # Overscanning Abdominal CT
 
-This repository provides a single Jupyter notebook for calculating cranial and caudal overscanning on abdominal CT volumes. Overscanning is measured relative to the pubic symphysis (caudal) and to liver/spleen segmentation (cranial). Detection uses YOLOv11 and segmentation uses TotalSegmentator.
+This repository provides tools to quantify cranial and caudal overscanning on abdominal CT volumes.  Overscanning is measured relative to the pubic symphysis (caudal) and to combined liver/spleen segmentation (cranial).  Detection relies on a YOLOv11 model and segmentation uses TotalSegmentator.
 
-The main workflow lives in **`overscanning_calculator.ipynb`** which processes a folder of NIfTI volumes and incrementally updates `overscanning_results.csv`. Later sections of the notebook can optionally render MP4 previews, write a summary statistics CSV and save scatter, box and bar plots of overscanning metrics.
+Two workflows are available:
 
-Pretrained weights for the pubic-symphysis YOLO model are available under
-`YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.  Download
-`best.pt` from that folder.  A copy of the overscanning calculator notebook can
-be obtained by cloning this repository or downloading the file directly.  When
-running the notebook you will need to point the path variables to your copy of
-the weights and to your NIfTI data directory as described below.
+- **`overscanning_calculator.ipynb`** – the original reference notebook containing the complete pipeline.
+- **Modular pipeline** – a set of Python modules with a small helper notebook (`abdomen_overscanning_helper.ipynb`) that executes them in sequence.
 
 ## Contents
 
-- `overscanning_calculator.ipynb` – full pipeline for overscanning metrics, MP4 previews and CSV summaries.
-- `YOLO/` – example training outputs and model weights for the pubic symphysis detector.
+- `overscanning_calculator.ipynb` – reference notebook with the full workflow
+- `abdomen_overscanning_helper.ipynb` – example notebook calling the modules
+- `config.py` – edit paths and flags here before running
+- `caudal.py` – caudal overscan detection and CSV update
+- `cranial.py` – cranial overscan detection and CSV update
+- `mp4_preview.py` – optional video generation
+- `stats_summary.py` – optional summary statistics table
+- `plotting.py` – optional figure generation
+- `tests/` – pytest suite covering the modules
+- `YOLO/` – example training outputs and model weights for the pubic symphysis detector
 
 ## Installation
 
@@ -30,26 +34,31 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. **Download the calculator and model weights** – clone this repository (or download `overscanning_calculator.ipynb` directly) and retrieve `best.pt` from `YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.
+1. **Download the model weights** – retrieve `best.pt` from `YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.
 2. **Prepare your data** – organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
-3. **Edit the paths in `overscanning_calculator.ipynb`**
-   - `MODEL_PATH` – path to the downloaded YOLO weights (`best.pt`).
-   - `NIFTI_DIR` – directory containing patient subfolders with NIfTI volumes.
-   - `CSV_PATH` – output CSV path (defaults to `NIFTI_DIR/overscanning_results.csv`).
-   - Flags controlling behaviour:
-     - `DISPLAY_DETECTION` – show the best pubic-symphysis detection slice.
-     - `FAST_MODEL` – pass `--fast` to TotalSegmentator for quicker but less accurate masks.
-     - `MULTI_LABEL_MASK` – store liver and spleen in a combined mask as labels `1` and `2`.
-4. **Run the notebook** – execute the cells. Processing is incremental; existing rows in the CSV are updated or appended. Femur, liver and spleen masks are generated on the fly (GPU is tried first with CPU fallback). Optional cells near the end can generate MP4 preview videos, write a summary statistics CSV and export PNG plots summarising overscanning.
+3. **Configure paths** – edit `config.py` to point `MODEL_PATH`, `NIFTI_DIR` and `CSV_PATH` to your locations.  Optional flags controlling detection and segmentation can also be adjusted.
+4. **Run the pipeline** – either execute the modules directly:
+
+```bash
+python caudal.py        # caudal overscan
+python cranial.py       # cranial overscan
+python mp4_preview.py   # optional video previews
+python stats_summary.py # optional summary CSV
+python plotting.py      # optional figures
+```
+
+   or open `abdomen_overscanning_helper.ipynb` and run the cells.
+
+Results accumulate in `overscanning_results.csv` under `NIFTI_DIR`.
 
 ## File Requirements
 
 - Input CTs must be NIfTI files (`.nii` or `.nii.gz`) oriented head-to-feet.
-- YOLO expects images in BGR format; the notebook handles normalisation automatically.
+- YOLO expects images in BGR format; the modules handle normalisation automatically.
 
 ## Methodology Notes
 
-Cranial overscanning is computed using the highest axial slice containing liver or spleen voxels. Caudal overscanning uses a YOLO detection of the pubic symphysis with femur segmentation as a fallback when YOLO fails. Distances are reported in millimetres, derived from the NIfTI affine.
+Cranial overscanning is computed using the highest axial slice containing liver or spleen voxels.  Caudal overscanning uses a YOLO detection of the pubic symphysis with femur segmentation as a fallback when YOLO fails.  Distances are reported in millimetres, derived from the NIfTI affine.
 
 The CSV columns are:
 
@@ -66,9 +75,17 @@ The CSV columns are:
 
 ## Outputs
 
-- `overscanning_results.csv` – main results updated after each run.
-- `summary_statistics.csv` – vertical table of mean/SD overscan metrics and overscan frequencies.
-- `scatter_cranial_caudal.png`, `box_cranial_caudal_total.png`, `bar_cranial_caudal.png` – visualisations of overscan distribution.
+- `overscanning_results.csv` – main results updated after each run
+- `summary_statistics.csv` – vertical table of mean/SD overscan metrics and overscan frequencies
+- `scatter_cranial_caudal.png`, `box_cranial_caudal_total.png`, `bar_cranial_caudal.png` – visualisations of overscan distribution
+
+## Testing
+
+Run the tests with:
+
+```bash
+pytest -q
+```
 
 ## License
 
