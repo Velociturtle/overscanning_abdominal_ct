@@ -4,8 +4,10 @@ from __future__ import annotations
 import contextlib
 import gc
 import io
+import os
 import time
 import traceback
+import warnings
 from pathlib import Path
 
 from . import config
@@ -37,12 +39,16 @@ def _require(dep, name: str) -> None:
 
 
 def run_ts_silent(*args, **kwargs):
-    """Run TotalSegmentator silently."""
+    """Run TotalSegmentator silently with warnings filtered."""
     _require(nib, "nibabel")
-    try:
-        from totalsegmentator.python_api import totalsegmentator  # type: ignore
-    except Exception as exc:  # pragma: no cover
-        raise ImportError("totalsegmentator package is required") from exc
+    os.environ.setdefault("NUMEXPR_MAX_THREADS", str(os.cpu_count() or 8))
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*IProgress not found.*")
+        warnings.filterwarnings("ignore", message="pkg_resources is deprecated.*")
+        try:
+            from totalsegmentator.python_api import totalsegmentator  # type: ignore
+        except Exception as exc:  # pragma: no cover
+            raise ImportError("totalsegmentator package is required") from exc
     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         return totalsegmentator(*args, **kwargs)
 
