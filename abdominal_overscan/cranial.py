@@ -41,7 +41,13 @@ def _require(dep, name: str) -> None:
 def run_ts_silent(*args, **kwargs):
     """Run TotalSegmentator silently with warnings filtered."""
     _require(nib, "nibabel")
-    os.environ.setdefault("NUMEXPR_MAX_THREADS", str(os.cpu_count() or 8))
+    # numexpr can raise an error if a library internally requests more threads
+    # than allowed by ``NUMEXPR_MAX_THREADS``.  Some environments set this
+    # variable to a low value (e.g. 8) which then triggers warnings when
+    # TotalSegmentator uses more workers.  To avoid spurious warnings we set a
+    # reasonable upper bound that should exceed any threads used here.
+    max_threads = max(os.cpu_count() or 8, 64)
+    os.environ["NUMEXPR_MAX_THREADS"] = str(max_threads)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*IProgress not found.*")
         warnings.filterwarnings("ignore", message="pkg_resources is deprecated.*")
