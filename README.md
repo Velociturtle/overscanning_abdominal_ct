@@ -26,11 +26,15 @@ Create a Python environment (Python 3.9+ recommended) and install the dependenci
 
 ```bash
 python -m venv venv
+# Activate the environment
+# Linux or macOS
 source venv/bin/activate
+# Windows (cmd.exe or PowerShell)
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-`torch` should be installed with CUDA support if GPU processing is desired for YOLO and TotalSegmentator.
+`torch` should be installed with CUDA support if GPU processing is desired for TotalSegmentator.
 
 ## Default paths
 
