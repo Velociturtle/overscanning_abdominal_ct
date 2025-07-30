@@ -28,6 +28,8 @@ try:
 except Exception:  # pragma: no cover
     tqdm = None  # type: ignore
 
+from concurrent.futures import ProcessPoolExecutor
+
 
 # ---------------------------------------------------------------------------
 # utility
@@ -203,7 +205,7 @@ def process_single_case(ct_path: Path) -> dict | None:
             torch.cuda.empty_cache()
 
 
-def run_batch() -> None:
+def run_batch(num_workers: int = 1) -> None:
     """Run cranial overscan detection over CT volumes."""
     _require(pd, "pandas")
     patterns = ("*.nii.gz", "*.nii")
@@ -239,13 +241,19 @@ def run_batch() -> None:
     results = []
     t0 = time.time()
 
-    iterator = tqdm(ct_files, desc="Processing cranial overscan", unit="vol") if tqdm else ct_files
-    for ct_path in iterator:
-        if ct_path.name in done_set:
-            continue
-        row = process_single_case(ct_path)
-        if row:
-            results.append(row)
+    to_process = [p for p in ct_files if p.name not in done_set]
+    if num_workers > 1:
+        with ProcessPoolExecutor(max_workers=num_workers) as ex:
+            for row in tqdm(ex.map(process_single_case, to_process),
+                           total=len(to_process),
+                           desc="Processing cranial overscan", unit="vol"):
+                if row:
+                    results.append(row)
+    else:
+        for ct_path in tqdm(to_process, desc="Processing cranial overscan", unit="vol"):
+            row = process_single_case(ct_path)
+            if row:
+                results.append(row)
 
     if not results:
         print("No new successful cases.")
@@ -272,4 +280,11 @@ def run_batch() -> None:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation
-    run_batch()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Compute cranial overscan")
+    parser.add_argument("-w", "--workers", type=int, default=1,
+                        help="number of parallel workers")
+    args = parser.parse_args()
+
+    run_batch(num_workers=max(1, args.workers))
