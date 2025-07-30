@@ -59,7 +59,7 @@ either by editing `abdominal_overscan/config.py` or at runtime.
    The notebook calls `caudal.run_batch(num_workers=1)` and `cranial.run_batch(num_workers=1)` by default.
    Increase `num_workers` if your hardware allows parallel processing.
 
-   You can also execute the modules directly:
+Alternatively: execute the modules directly
 
 ```bash
 python -m abdominal_overscan.caudal   # caudal overscan
