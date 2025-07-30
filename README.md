@@ -17,6 +17,7 @@ Two workflows are available:
 - `abdominal_overscan/mp4_preview.py` — (optional) video generation
 - `abdominal_overscan/metrics.py` — (optional) summary statistics table
 - `abdominal_overscan/figures.py` — (optional) figure generation
+- `convert_dicoms_to_niftis.ipynb` — convert DICOM series to NIfTI files
 - `tests/` — pytest suite
 - `YOLO/` — example training outputs and pubic symphysis model weights
 
@@ -73,6 +74,14 @@ Add `-w N` to the first two commands to process multiple scans in parallel, e.g.
 `python -m abdominal_overscan.caudal -w 4`.
 
 Results accumulate in `overscanning_results.csv` under `NIFTI_DIR`.
+
+## Converting DICOMs
+
+Raw DICOM downloads often contain multiple series. The notebook
+`convert_dicoms_to_niftis.ipynb` identifies the diagnostic axial series
+(>50 images with `ImageType` containing `ORIGINAL\PRIMARY\AXIAL`) and
+converts only that series to a NIfTI volume in the chosen output
+directory. Other series are left untouched.
 
 ## File Requirements
 
