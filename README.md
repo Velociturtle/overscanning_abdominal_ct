@@ -55,7 +55,11 @@ either by editing `abdominal_overscan/config.py` or at runtime.
 1. **Download the model weights** – retrieve `best.pt` from `YOLO/model_and_training/yolo11_pubic_symphysis_m_hardtrain/weights`.
 2. **Prepare your data** – organise CT scans as NIfTI files under a single directory. Each patient folder should contain one `.nii` or `.nii.gz` volume.
 3. **Configure paths** – edit `abdominal_overscan/config.py` to point `MODEL_PATH`, `NIFTI_DIR` and `CSV_PATH` to your locations.  Optional flags controlling detection and segmentation can also be adjusted.
-4. **Run the pipeline** – either execute the modules directly:
+4. **Run the pipeline** – open `abdomen_overscanning_helper.ipynb` and run the cells.
+   The notebook calls `caudal.run_batch(num_workers=1)` and `cranial.run_batch(num_workers=1)` by default.
+   Increase `num_workers` if your hardware allows parallel processing.
+
+   You can also execute the modules directly:
 
 ```bash
 python -m abdominal_overscan.caudal   # caudal overscan
@@ -65,7 +69,8 @@ python -m abdominal_overscan.metrics  # optional summary CSV
 python -m abdominal_overscan.figures  # optional figures
 ```
 
-   or open `abdomen_overscanning_helper.ipynb` and run the cells.
+Add `-w N` to the first two commands to process multiple scans in parallel, e.g.
+`python -m abdominal_overscan.caudal -w 4`.
 
 Results accumulate in `overscanning_results.csv` under `NIFTI_DIR`.
 
