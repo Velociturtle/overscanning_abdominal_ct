@@ -73,7 +73,9 @@ def nifti_basename(p: Path) -> str:
 
 
 def file_matches_parent(p: Path) -> bool:
-    """Return ``True`` if file basename matches parent folder name."""
+    """Return ``True`` if basename matches parent folder or file sits in ``NIFTI_DIR``."""
+    if p.parent == config.NIFTI_DIR:
+        return True
     return nifti_basename(p).lower() == p.parent.name.lower()
 
 
@@ -88,6 +90,30 @@ def is_ct_vol(p: Path) -> bool:
     if p.name.startswith(("femur_", "liver_", "spleen_")):
         return False
     return True
+
+
+def ensure_patient_dirs() -> None:
+    """Move CT volumes into per-patient folders under :data:`config.NIFTI_DIR`."""
+    patterns = ("*.nii.gz", "*.nii")
+    ct_files = [
+        p
+        for pat in patterns
+        for p in config.NIFTI_DIR.rglob(pat)
+        if p.is_file() and is_ct_vol(p)
+    ]
+
+    for p in ct_files:
+        folder = config.NIFTI_DIR / nifti_basename(p)
+        if p.parent != folder:
+            folder.mkdir(exist_ok=True)
+            target = folder / p.name
+            if not target.exists():
+                p.replace(target)
+            try:
+                if p.parent != config.NIFTI_DIR and not any(p.parent.iterdir()):
+                    p.parent.rmdir()
+            except Exception:
+                pass
 
 
 def ensure_liver_spleen_mask(ct_path: Path) -> Path | None:
@@ -208,6 +234,7 @@ def process_single_case(ct_path: Path) -> dict | None:
 def run_batch(num_workers: int = 1) -> None:
     """Run cranial overscan detection over CT volumes."""
     _require(pd, "pandas")
+    ensure_patient_dirs()
     patterns = ("*.nii.gz", "*.nii")
     ct_files = sorted({
         p
