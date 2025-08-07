@@ -24,7 +24,7 @@ from .config import NIFTI_DIR, CSV_PATH
 from .caudal import ensure_femur_mask
 from .cranial import ensure_liver_spleen_mask
 
-OUT_DIR = NIFTI_DIR.parent / "trauma_overscan_videos_test"
+OUT_DIR = NIFTI_DIR.parent / "abdomen_overscan_videos"
 
 
 def build_mp4_abdomen(
