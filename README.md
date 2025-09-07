@@ -94,16 +94,20 @@ Cranial overscanning is computed using the highest axial slice containing liver 
 
 The CSV columns are:
 
-- `file_name` – scan filename
-- `pubic_z_mm` – world z-coordinate of detected pubic symphysis
-- `scan_end_z_mm` – caudal edge of scan
-- `caudal_overscan_mm` – distance from pubic symphysis to scan end
-- `femur_top_z_mm` – cranial-most femur coordinate
-- `pubic_source` – `YOLO`, `YOLO_NoFemur`, or `FemurFallback`
-- `liver_spleen_z_mm` – highest liver/spleen voxel
-- `scan_start_z_mm` – cranial edge of scan
-- `cranial_overscan_mm` – distance from cranial edge to top organ
-- `top_organ` – `Liver`, `Spleen`, or `Unknown`
+- `file_name` - scan filename
+- `pubic_z_mm` - world z-coordinate of detected pubic symphysis
+- `scan_end_z_mm` - caudal edge of scan
+- `caudal_overscan_mm` - distance from pubic symphysis to scan end
+- `calc_caudal_overscan_mm` - caudal overscan thresholded (30 mm if pubic symphysis used; 50 mm if femur fallback was used)
+- `femur_top_z_mm` - cranial-most femur coordinate
+- `pubic_source` - `YOLO`, `YOLO_NoFemur`, or `FemurFallback`
+- `liver_spleen_z_mm` - highest liver/spleen voxel
+- `scan_start_z_mm` - cranial edge of scan
+- `cranial_overscan_mm` - distance from cranial edge to top organ
+- `calc_cranial_overscan_mm` - cranial overscan thresholded at 30 mm
+- `top_organ` - `Liver` or `Spleen`
+
+
 
 ## Outputs
 
