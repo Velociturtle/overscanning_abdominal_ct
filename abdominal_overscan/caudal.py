@@ -210,30 +210,74 @@ def find_valid_pubic_slice(ct_path: Path, z_cutoff_mm: float) -> int | None:
     affine = ct.affine
     vol = ct.get_fdata()
     _, W, Z = vol.shape
-
     best_conf, best_slice = -1.0, None
+    target_z_val = float("inf")
+
+    def _to_world_z(z_idx: int) -> float:
+        return float((affine @ [0, 0, z_idx, 1])[2])
+
+    def _inferior_neighbor(z_idx: int) -> int | None:
+        """Return the neighbouring slice that lies more caudally (smaller world z)."""
+        opts = []
+        if z_idx - 1 >= 0:
+            opts.append((z_idx - 1, _to_world_z(z_idx - 1)))
+        if z_idx + 1 < Z:
+            opts.append((z_idx + 1, _to_world_z(z_idx + 1)))
+        if not opts:
+            return None
+        inferior = min(opts, key=lambda t: t[1])
+        if inferior[1] < _to_world_z(z_idx):
+            return inferior[0]
+        return None
+
     for z in range(Z):
-        if float((affine @ [0, 0, z, 1])[2]) > z_cutoff_mm:
+        z_mm = _to_world_z(z)
+        if z_mm > z_cutoff_mm:
             continue
         img = preprocess_slice(vol[:, :, z])
         res = model.predict(img, conf=config.FINAL_CONF, device=DEVICE, save=False, verbose=False)[0]
-        for b in sorted(res.boxes, key=lambda bb: float(bb.conf), reverse=True):
+        for b in sorted(res.boxes,
+                        key=lambda bb: float(np.asarray(bb.conf).reshape(-1)[0]),
+                        reverse=True):
             x1, y1, x2, y2 = b.xyxy[0].tolist()
-            if vol[int((y1+y2)/2), int((x1+x2)/2), z] <= config.BACKGROUND_HU:
+            cy = int((y1 + y2) / 2)
+            cx = int((x1 + x2) / 2)
+            if vol[cy, cx, z] <= config.BACKGROUND_HU:
                 continue
-            cx = int((x1+x2)/2)
             if abs(cx - W // 2) > 0.20 * W:
                 continue
             win = vol[
-                max(0, int((y1+y2)/2) - 10):min(vol.shape[0], int((y1+y2)/2) + 10),
+                max(0, cy - 10):min(vol.shape[0], cy + 10),
                 max(0, cx - 10):min(W, cx + 10),
                 z,
             ]
             if win.mean() < 150:
                 continue
-            conf = float(b.conf)
-            if conf > best_conf:
-                best_conf, best_slice = conf, z
+            bone_frac = (win > config.BONE_HU_THRESHOLD).mean()
+            if bone_frac < config.BONE_MIN_FRACTION:
+                continue
+
+            # walk caudally while bone remains to align with inferior margin
+            refined_z = z
+            for _ in range(config.PUBIC_MISS_TOLERANCE):
+                next_z = _inferior_neighbor(refined_z)
+                if next_z is None:
+                    break
+                z_slice = vol[:, :, next_z]
+                local = z_slice[
+                    max(0, cy - 6):min(z_slice.shape[0], cy + 6),
+                    max(0, cx - 6):min(z_slice.shape[1], cx + 6),
+                ]
+                if (local > config.BONE_HU_THRESHOLD).mean() >= config.BONE_MIN_FRACTION / 2:
+                    refined_z = next_z
+                else:
+                    break
+
+            conf = float(np.asarray(b.conf).reshape(-1)[0])
+            refined_mm = _to_world_z(refined_z)
+            if refined_mm < target_z_val or (refined_mm == target_z_val and conf > best_conf):
+                target_z_val = refined_mm
+                best_conf, best_slice = conf, refined_z
             break
     return best_slice
 

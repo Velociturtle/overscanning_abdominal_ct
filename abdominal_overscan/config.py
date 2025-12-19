@@ -23,6 +23,9 @@ MULTI_LABEL_MASK = True
 # --- Constants ---
 FINAL_CONF = 0.20
 BACKGROUND_HU = -300
+BONE_HU_THRESHOLD = 200
+BONE_MIN_FRACTION = 0.02
+PUBIC_MISS_TOLERANCE = 1
 
 
 def get_yolo_model():
