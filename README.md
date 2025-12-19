@@ -92,6 +92,10 @@ directory. Other series are left untouched.
 
 Cranial overscanning is computed using the highest axial slice containing liver or spleen voxels.  Caudal overscanning uses a YOLO detection of the pubic symphysis with femur segmentation as a fallback when YOLO fails.  Distances are reported in millimetres, derived from the NIfTI affine.
 
+- The caudal detection searches for bone-rich regions and then steps to the most caudal neighbouring slice that still contains bone to better align the red line with the **inferior margin** of the pubic symphysis (addresses the “red line too high” feedback).
+- Liver and spleen masks are morphologically cleaned (closing + hole filling) before computing cranial overscan to reduce spotty segmentation artefacts.
+- Configurable thresholds live in `abdominal_overscan/config.py` (`BONE_HU_THRESHOLD`, `BONE_MIN_FRACTION`, `PUBIC_MISS_TOLERANCE`, etc.).
+
 The CSV columns are:
 
 - `file_name` - scan filename

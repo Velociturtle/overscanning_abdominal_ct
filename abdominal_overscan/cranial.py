@@ -17,11 +17,13 @@ try:  # optional dependencies
     import pandas as pd  # type: ignore
     import nibabel as nib  # type: ignore
     import torch  # type: ignore
+    from scipy import ndimage  # type: ignore
 except Exception:  # pragma: no cover
     np = None  # type: ignore
     pd = None  # type: ignore
     nib = None  # type: ignore
     torch = None  # type: ignore
+    ndimage = None  # type: ignore
 
 try:
     from tqdm import tqdm  # type: ignore
@@ -116,6 +118,18 @@ def ensure_patient_dirs() -> None:
                 pass
 
 
+def _clean_mask(mask: np.ndarray) -> np.ndarray:
+    """Reduce spotty artefacts by closing and filling holes slice-wise."""
+    _require(ndimage, "scipy.ndimage")
+    if mask.dtype != bool:
+        mask = mask.astype(bool)
+    structure = np.ones((3, 3, 3), dtype=bool)
+    closed = ndimage.binary_closing(mask, structure=structure)
+    filled = ndimage.binary_fill_holes(closed)
+    stable = filled | mask  # preserve original signal so closing never removes anatomy
+    return stable.astype(mask.dtype)
+
+
 def ensure_liver_spleen_mask(ct_path: Path) -> Path | None:
     """Generate or return the combined liver/spleen mask."""
     _require(nib, "nibabel")
@@ -154,10 +168,10 @@ def ensure_liver_spleen_mask(ct_path: Path) -> Path | None:
 
     if config.MULTI_LABEL_MASK:
         combined = np.zeros(liver_data.shape, dtype="uint8")
-        combined[liver_data] = 1
-        combined[spleen_data] = 2
+        combined[_clean_mask(liver_data)] = 1
+        combined[_clean_mask(spleen_data)] = 2
     else:
-        combined = (liver_data | spleen_data).astype("uint8")
+        combined = _clean_mask(liver_data | spleen_data).astype("uint8")
 
     ref_img = nib.load(liver_mask if liver_mask.exists() else spleen_mask)
     nib.save(nib.Nifti1Image(combined, ref_img.affine, ref_img.header), merged_path)

@@ -4,6 +4,7 @@ import pytest
 
 cranial = pytest.importorskip('abdominal_overscan.cranial')
 from pathlib import Path
+pytest.importorskip("scipy")
 
 
 def test_nifti_basename():
@@ -25,3 +26,18 @@ def test_ensure_patient_dirs(tmp_path, monkeypatch):
     assert not f.exists()
     moved = tmp_path / 'case' / 'case.nii.gz'
     assert moved.exists()
+
+
+def test_clean_mask_fills_holes(monkeypatch):
+    import numpy as np
+    structure = np.zeros((3, 3, 3), dtype=bool)
+    structure[1, 1, :] = True
+    structure[:, 1, 1] = True
+    mask = np.zeros((3, 3, 3), dtype=bool)
+    mask[1, 1, 1] = True
+    mask[1, 1, 0] = True
+    mask[1, 1, 2] = True
+    monkeypatch.setattr(cranial, "ndimage", __import__("scipy").ndimage)
+    filled = cranial._clean_mask(mask)
+    assert filled.any()
+    assert filled[1, 1, :].all()

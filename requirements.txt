@@ -8,3 +8,4 @@ totalsegmentator
 dicom2nifti
 tqdm
 matplotlib
+scipy
