@@ -42,10 +42,29 @@ def test_find_valid_pubic_slice_prefers_inferior(monkeypatch):
     monkeypatch.setattr(caudal, "np", __import__("numpy"))
     monkeypatch.setattr(caudal, "cv2", object())
 
+    class TensorLike:
+        def __init__(self, arr, fail_without_cpu=True):
+            self.arr = np.asarray(arr)
+            self.fail_without_cpu = fail_without_cpu
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return TensorLike(self.arr, fail_without_cpu=False)
+
+        def __getitem__(self, item):
+            return TensorLike(self.arr[item], self.fail_without_cpu)
+
+        def __array__(self, dtype=None):
+            if self.fail_without_cpu:
+                raise TypeError("can't convert cuda:0 device type tensor to numpy")
+            return np.asarray(self.arr, dtype=dtype)
+
     class DummyBox:
         def __init__(self):
-            self.xyxy = np.array([[1, 1, 3, 3]], dtype=float)
-            self.conf = np.array([0.9], dtype=float)
+            self.xyxy = TensorLike([[1, 1, 3, 3]])
+            self.conf = TensorLike([0.9])
 
     class DummyRes:
         def __init__(self):

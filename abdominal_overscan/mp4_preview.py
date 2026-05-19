@@ -23,6 +23,7 @@ except Exception:  # pragma: no cover
 from .config import NIFTI_DIR, CSV_PATH
 from .caudal import ensure_femur_mask
 from .cranial import ensure_liver_spleen_mask
+from .video_annotations import draw_labeled_line, put_corner_label
 
 OUT_DIR = NIFTI_DIR.parent / "abdomen_overscan_videos"
 
@@ -99,11 +100,10 @@ def build_mp4_abdomen(
     start_y, end_y = max(0, mid_y - half), min(Y - 1, mid_y + half)
     y_stretch = vz / vx
 
-    font, fs, th = cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2
     red, green = (0, 0, 255), (0, 255, 0)
     femur_color = (255, 0, 0)
     organ_color = (0, 255, 255)
-    ALPHA = 0.35
+    ALPHA = 0.25
     landmark_name = "Femur" if (pubic_source == "FemurFallback") else "Pubic Symphysis"
 
     def render(y_idx: int) -> any:
@@ -124,36 +124,27 @@ def build_mp4_abdomen(
             h, w = img.shape[:2]
             img = cv2.resize(img, (w, int(h * y_stretch)), interpolation=cv2.INTER_CUBIC)
 
-        h, w = img.shape[:2]
         if pubic_row is not None:
             y_line = int(pubic_row * y_stretch)
-            cv2.line(img, (0, y_line), (w - 1, y_line), red, 2)
-            cv2.putText(
+            draw_labeled_line(
                 img,
+                y_line,
                 f"{landmark_name} z={pubic_z_mm:.0f} mm",
-                (10, max(20, y_line - 6)),
-                font,
-                fs,
                 red,
-                th,
-                cv2.LINE_AA,
+                prefer_above=True,
             )
 
         if organ_row is not None and organ_label:
             y_line = int(organ_row * y_stretch)
-            cv2.line(img, (0, y_line), (w - 1, y_line), green, 2)
-            cv2.putText(
+            draw_labeled_line(
                 img,
+                y_line,
                 f"{organ_label} z={organ_z_mm:.0f} mm",
-                (10, min(h - 10, y_line + 20)),
-                font,
-                fs,
                 green,
-                th,
-                cv2.LINE_AA,
+                prefer_above=False,
             )
 
-        cv2.putText(img, f"{scan_id} | y={y_idx}", (10, h - 10), font, fs, (255, 255, 0), th, cv2.LINE_AA)
+        put_corner_label(img, f"{scan_id} | y={y_idx}", (255, 255, 0))
         return img
 
     first = render(start_y)
@@ -189,7 +180,7 @@ def run_all() -> None:
             ok += 1
         except Exception as e:
             failed += 1
-            tqdm.write(f"✗ {sid}: {e}")
+            tqdm.write(f"failed {sid}: {e}")
             traceback.print_exc()
 
     print(f"Finished. {ok} MP4s created and saved to {OUT_DIR}")

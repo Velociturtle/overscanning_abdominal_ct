@@ -104,7 +104,7 @@ def generate_summary() -> None:
     })
 
     summary.to_csv(SUMMARY_CSV_PATH, index=False, encoding="utf-8-sig")
-    print(f"Summary statistics written → {SUMMARY_CSV_PATH}")
+    print(f"Summary statistics written to {SUMMARY_CSV_PATH}")
 
 
 if __name__ == "__main__":  # pragma: no cover - manual invocation

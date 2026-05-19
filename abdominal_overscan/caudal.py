@@ -11,6 +11,8 @@ import warnings
 from pathlib import Path
 
 from . import config
+from .failure_reporting import write_failed_cases
+from .mask_utils import mask_is_valid, remove_if_exists
 
 try:  # optional dependencies
     import numpy as np  # type: ignore
@@ -137,10 +139,13 @@ def ensure_femur_mask(ct_path: Path) -> Path | None:
     fem_r_path = out_dir / "femur_right.nii.gz"
     merged_path = ct_path.parent / "femur_combined.nii.gz"
 
-    if merged_path.exists():
+    ct_shape = nib.load(ct_path).shape
+    if mask_is_valid(merged_path, ct_shape, min_voxels=10):
         return merged_path
 
-    if not (fem_l_path.exists() and fem_r_path.exists()):
+    remove_if_exists([merged_path])
+
+    if not (mask_is_valid(fem_l_path, ct_shape) and mask_is_valid(fem_r_path, ct_shape)):
         out_dir.mkdir(exist_ok=True)
         for dev in ("gpu", "cpu"):
             try:
@@ -158,22 +163,21 @@ def ensure_femur_mask(ct_path: Path) -> Path | None:
         else:
             return None
 
-    try:
-        fem_l = nib.load(fem_l_path).get_fdata() > 0
-        fem_r = nib.load(fem_r_path).get_fdata() > 0
-    except FileNotFoundError:
+    masks = []
+    for path in (fem_l_path, fem_r_path):
+        if mask_is_valid(path, ct_shape):
+            masks.append(nib.load(path).get_fdata() > 0)
+    if not masks:
         return None
 
-    merged = (fem_l | fem_r).astype("uint8")
+    merged = np.logical_or.reduce(masks).astype("uint8")
     if not merged.any():
         return None
 
-    ref = nib.load(fem_l_path if fem_l_path.exists() else fem_r_path)
+    ref = nib.load(fem_l_path if mask_is_valid(fem_l_path, ct_shape) else fem_r_path)
     nib.save(nib.Nifti1Image(merged, ref.affine, ref.header), merged_path)
 
-    for p in (fem_l_path, fem_r_path):
-        if p.exists():
-            p.unlink()
+    remove_if_exists([fem_l_path, fem_r_path])
     if out_dir.exists() and not any(out_dir.iterdir()):
         out_dir.rmdir()
     return merged_path
@@ -197,6 +201,23 @@ def femur_top_info(ct_path: Path) -> tuple[int, float] | None:
 
 
 DEVICE = 0 if torch and torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
+
+
+def _to_numpy(value):
+    """Convert NumPy or torch-like values to a host NumPy array."""
+    if hasattr(value, "detach"):
+        value = value.detach()
+    if hasattr(value, "cpu"):
+        value = value.cpu()
+    return np.asarray(value)
+
+
+def _box_conf(box) -> float:
+    return float(_to_numpy(box.conf).reshape(-1)[0])
+
+
+def _box_xyxy(box) -> list[float]:
+    return _to_numpy(box.xyxy[0]).reshape(-1).tolist()
 
 
 def find_valid_pubic_slice(ct_path: Path, z_cutoff_mm: float) -> int | None:
@@ -236,10 +257,8 @@ def find_valid_pubic_slice(ct_path: Path, z_cutoff_mm: float) -> int | None:
             continue
         img = preprocess_slice(vol[:, :, z])
         res = model.predict(img, conf=config.FINAL_CONF, device=DEVICE, save=False, verbose=False)[0]
-        for b in sorted(res.boxes,
-                        key=lambda bb: float(np.asarray(bb.conf).reshape(-1)[0]),
-                        reverse=True):
-            x1, y1, x2, y2 = b.xyxy[0].tolist()
+        for b in sorted(res.boxes, key=_box_conf, reverse=True):
+            x1, y1, x2, y2 = _box_xyxy(b)
             cy = int((y1 + y2) / 2)
             cx = int((x1 + x2) / 2)
             if vol[cy, cx, z] <= config.BACKGROUND_HU:
@@ -273,7 +292,7 @@ def find_valid_pubic_slice(ct_path: Path, z_cutoff_mm: float) -> int | None:
                 else:
                     break
 
-            conf = float(np.asarray(b.conf).reshape(-1)[0])
+            conf = _box_conf(b)
             refined_mm = _to_world_z(refined_z)
             if refined_mm < target_z_val or (refined_mm == target_z_val and conf > best_conf):
                 target_z_val = refined_mm
@@ -363,21 +382,36 @@ def run_batch(num_workers: int = 1) -> None:
     done_set = set(df_prev.loc[done_mask, "file_name"])
 
     results = []
+    failures = []
     t0 = time.time()
 
     to_process = [p for p in ct_files if p.name not in done_set]
     if num_workers > 1:
         with ProcessPoolExecutor(max_workers=num_workers) as ex:
-            for row in tqdm(ex.map(process_single_case, to_process),
+            for ct_path, row in zip(to_process, tqdm(ex.map(process_single_case, to_process),
                            total=len(to_process),
-                           desc="Processing caudal overscan", unit="vol"):
+                           desc="Processing caudal overscan", unit="vol")):
                 if row:
                     results.append(row)
+                else:
+                    failures.append({
+                        "file_name": ct_path.name,
+                        "reason": "no valid pubic symphysis or femur fallback",
+                    })
     else:
         for ct_path in tqdm(to_process, desc="Processing caudal overscan", unit="vol"):
             row = process_single_case(ct_path)
             if row:
                 results.append(row)
+            else:
+                failures.append({
+                    "file_name": ct_path.name,
+                    "reason": "no valid pubic symphysis or femur fallback",
+                })
+
+    failed_report = write_failed_cases(config.CSV_PATH, "caudal", failures)
+    if failures:
+        print(f"{len(failures)} caudal case(s) written to {failed_report}")
 
     if not results:
         print("No new successful cases.")

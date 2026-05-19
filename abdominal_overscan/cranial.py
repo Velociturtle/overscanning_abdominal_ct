@@ -11,6 +11,8 @@ import warnings
 from pathlib import Path
 
 from . import config
+from .failure_reporting import write_failed_cases
+from .mask_utils import mask_is_valid, remove_if_exists
 
 try:  # optional dependencies
     import numpy as np  # type: ignore
@@ -139,10 +141,13 @@ def ensure_liver_spleen_mask(ct_path: Path) -> Path | None:
     spleen_mask = out_dir / "spleen.nii.gz"
     merged_path = ct_path.parent / "liver_spleen_combined.nii.gz"
 
-    if merged_path.exists():
+    ct_shape = nib.load(ct_path).shape
+    if mask_is_valid(merged_path, ct_shape, min_voxels=10):
         return merged_path
 
-    if not (liver_mask.exists() and spleen_mask.exists()):
+    remove_if_exists([merged_path])
+
+    if not (mask_is_valid(liver_mask, ct_shape) and mask_is_valid(spleen_mask, ct_shape)):
         out_dir.mkdir(exist_ok=True)
         for dev in ("gpu", "cpu"):
             try:
@@ -160,10 +165,15 @@ def ensure_liver_spleen_mask(ct_path: Path) -> Path | None:
         else:
             return None
 
-    try:
-        liver_data = nib.load(liver_mask).get_fdata() > 0
-        spleen_data = nib.load(spleen_mask).get_fdata() > 0
-    except FileNotFoundError:
+    liver_data = (
+        nib.load(liver_mask).get_fdata() > 0
+        if mask_is_valid(liver_mask, ct_shape) else np.zeros(ct_shape, dtype=bool)
+    )
+    spleen_data = (
+        nib.load(spleen_mask).get_fdata() > 0
+        if mask_is_valid(spleen_mask, ct_shape) else np.zeros(ct_shape, dtype=bool)
+    )
+    if not (liver_data.any() or spleen_data.any()):
         return None
 
     if config.MULTI_LABEL_MASK:
@@ -173,12 +183,10 @@ def ensure_liver_spleen_mask(ct_path: Path) -> Path | None:
     else:
         combined = _clean_mask(liver_data | spleen_data).astype("uint8")
 
-    ref_img = nib.load(liver_mask if liver_mask.exists() else spleen_mask)
+    ref_img = nib.load(liver_mask if mask_is_valid(liver_mask, ct_shape) else spleen_mask)
     nib.save(nib.Nifti1Image(combined, ref_img.affine, ref_img.header), merged_path)
 
-    for p in (liver_mask, spleen_mask):
-        if p.exists():
-            p.unlink()
+    remove_if_exists([liver_mask, spleen_mask])
     if out_dir.exists() and not any(out_dir.iterdir()):
         out_dir.rmdir()
 
@@ -221,11 +229,9 @@ def process_single_case(ct_path: Path) -> dict | None:
     """Process a single CT for cranial overscan."""
     _require(nib, "nibabel")
     try:
-        mask_path = ct_path.parent / "liver_spleen_combined.nii.gz"
-        if not mask_path.exists():
-            mask_path = ensure_liver_spleen_mask(ct_path)
-            if mask_path is None or not mask_path.exists():
-                return None
+        mask_path = ensure_liver_spleen_mask(ct_path)
+        if mask_path is None or not mask_path.exists():
+            return None
 
         cranial_mm, organ_z_mm, scan_start_mm, organ_top = cranial_overscan(ct_path, mask_path)
 
@@ -280,21 +286,36 @@ def run_batch(num_workers: int = 1) -> None:
     done_set = set(df_prev.loc[done_mask, "file_name"])
 
     results = []
+    failures = []
     t0 = time.time()
 
     to_process = [p for p in ct_files if p.name not in done_set]
     if num_workers > 1:
         with ProcessPoolExecutor(max_workers=num_workers) as ex:
-            for row in tqdm(ex.map(process_single_case, to_process),
+            for ct_path, row in zip(to_process, tqdm(ex.map(process_single_case, to_process),
                            total=len(to_process),
-                           desc="Processing cranial overscan", unit="vol"):
+                           desc="Processing cranial overscan", unit="vol")):
                 if row:
                     results.append(row)
+                else:
+                    failures.append({
+                        "file_name": ct_path.name,
+                        "reason": "no valid liver or spleen mask",
+                    })
     else:
         for ct_path in tqdm(to_process, desc="Processing cranial overscan", unit="vol"):
             row = process_single_case(ct_path)
             if row:
                 results.append(row)
+            else:
+                failures.append({
+                    "file_name": ct_path.name,
+                    "reason": "no valid liver or spleen mask",
+                })
+
+    failed_report = write_failed_cases(config.CSV_PATH, "cranial", failures)
+    if failures:
+        print(f"{len(failures)} cranial case(s) written to {failed_report}")
 
     if not results:
         print("No new successful cases.")

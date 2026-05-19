@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "overscanning-abdominal-ct"
+version = "0.1.0"
+description = "Tools to quantify cranial and caudal overscanning on abdominal CT volumes."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Ryan Krishna", email = "rkrishna1@mgh.harvard.edu" },
+]
+requires-python = ">=3.9"
+dependencies = [
+    "dicom2nifti",
+    "matplotlib",
+    "nibabel",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "scipy",
+    "torch",
+    "totalsegmentator",
+    "tqdm",
+    "ultralytics",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "abdominal_overscan",
+    "tests",
+    "*.ipynb",
+    "README.md",
+    "LICENSE",
+    "requirements.txt",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["abdominal_overscan"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
